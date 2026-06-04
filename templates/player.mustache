@@ -1,0 +1,50 @@
+{{!
+    @template filter_fastpix/player
+
+    The player mount wrapper for a {fastpix:pb_<id>} embed. Mirrors
+    mod_fastpix/player_wrapper attribute-for-attribute, MINUS every
+    watch-tracking attribute and the completion UI — embeds are casual viewing,
+    mod_fastpix owns completion (invariants 5 and 6). Specifically removed vs
+    the activity wrapper: data-session-token, data-cm-id, data-activity-id,
+    data-asset-id, data-no-skip-required, data-current-position, data-threshold,
+    data-asset-duration, the completed-indicator block and the intro lede.
+
+    The AMD module filter_fastpix/player_boot reads these data-* attributes and
+    mounts the <fastpix-player> web component (it is NOT a literal element here,
+    matching the activity's JS-mount pattern). data-drm-token is intentionally
+    EMPTY at render: the DRM token is fetched client-side on first play
+    (invariant 8), so it never lands in cacheable page HTML.
+
+    Player attribute names are pinned to the @fastpix/fp-player public surface
+    (CC9). Renaming without reading upstream docs is a CC9 violation — the
+    player silently renders an inert black box if attrs drift.
+
+    Context variables:
+      * playbackid     string
+      * playbacktoken  string  (manifest JWT; empty for public assets)
+      * drmrequired    bool
+      * accentcolor    string|null
+      * expiresatts    int     (unix seconds)
+      * videotitle     string  (asset title; CC9 metadata-video-title)
+
+    Example context (json):
+    {
+        "playbackid": "abc123",
+        "playbacktoken": "jwt",
+        "drmrequired": false,
+        "accentcolor": "#ec1e5b",
+        "expiresatts": 0,
+        "videotitle": "Welcome video"
+    }
+}}
+<div class="filter_fastpix-player-wrapper"
+     data-region="fastpix-player-wrapper"
+     data-playback-id="{{playbackid}}"
+     data-playback-token="{{playbacktoken}}"
+     data-drm-token=""
+     data-drm-required="{{#drmrequired}}1{{/drmrequired}}{{^drmrequired}}0{{/drmrequired}}"
+     data-accent-color="{{accentcolor}}"
+     data-video-title="{{videotitle}}"
+     data-expires-at="{{expiresatts}}"
+     style="position:relative;display:block;width:100%;aspect-ratio:16/9;background:#000;">
+</div>

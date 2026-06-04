@@ -1,0 +1,30 @@
+# filter_fastpix — keep dev/scratch artifacts out of the published plugin.
+# These stay on disk locally; they are just never pushed.
+
+# AI / dev tooling and internal design docs (not part of the plugin).
+.claude/
+
+# Hosted documentation source (published on the FastPix docs site, not shipped
+# with the plugin).
+docs/
+
+# Playwright MCP browser-session scratch (console logs, page snapshots, sample media).
+.playwright-mcp/
+
+# Loose QA screenshots dropped at the plugin root during development.
+/*.png
+
+# Demo screenshot gallery + how-to (kept locally, not shipped with the plugin).
+embed-places-screenshots/
+
+# Local database backups / scratch dumps.
+*.sql
+
+# Node / build tooling (the committed amd/build/* output is kept; deps are not).
+node_modules/
+
+# OS / editor noise.
+.DS_Store
+Thumbs.db
+*.swp
+*~

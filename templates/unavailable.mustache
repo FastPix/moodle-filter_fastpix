@@ -1,0 +1,21 @@
+{{!
+    @template filter_fastpix/unavailable
+
+    Placeholder shown in place of a {fastpix:pb_<id>} shortcode when the
+    referenced asset cannot be resolved (unknown, deleted, or cross-account) or
+    cannot be embedded (DRM-protected). Renders no player and no interactive
+    controls — see ADR-010 "Cross-account restore → Video unavailable UI".
+
+    Context variables:
+    * message - optional, an already-translated reason string. When absent, the
+      generic "unavailable" string is shown.
+
+    Example context (json):
+    {
+        "message": "This video is DRM-protected and cannot be played in an embed."
+    }
+}}
+<div class="filter_fastpix-unavailable alert alert-warning" role="status">
+    {{#message}}{{message}}{{/message}}
+    {{^message}}{{#str}}unavailable, filter_fastpix{{/str}}{{/message}}
+</div>
