@@ -48,12 +48,11 @@ jobs:
 
       # filter_fastpix depends on local_fastpix + mod_fastpix (see version.php).
       # A clean CI runner has neither, so the install would fail without them.
-      # EDIT the two lines below to point at the repos/refs CI should fetch from
-      # — e.g. "FastPix/moodle-local_fastpix" or a "owner/repo@branch" ref.
+      # These pull the two foundation/activity plugins from their FastPix repos.
       - name: Add dependent FastPix plugins
         run: |
-          moodle-plugin-ci add-plugin OWNER/moodle-local_fastpix   # <-- EDIT: local_fastpix repo
-          moodle-plugin-ci add-plugin OWNER/moodle-mod_fastpix     # <-- EDIT: mod_fastpix repo
+          moodle-plugin-ci add-plugin FastPix/moodle-local_fastpix
+          moodle-plugin-ci add-plugin FastPix/moodle-mod_fastpix
 
       - name: Install moodle-plugin-ci
         run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
