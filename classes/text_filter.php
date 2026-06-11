@@ -55,37 +55,36 @@ class text_filter extends \core_filters\text_filter {
         }
 
         $matches = $this->collect_matches($text);
-        if (empty($matches)) {
-            return $text;
-        }
+        if (!empty($matches)) {
+            global $PAGE;
 
-        global $PAGE;
+            // A real renderer_base (not the early bootstrap_renderer $OUTPUT may
+            // be) so player_embed::export_for_template gets the type it declares.
+            $output = $PAGE->get_renderer('core');
+            $context = $this->resolve_context($options);
+            $rendered = false;
 
-        // A real renderer_base (not the early bootstrap_renderer $OUTPUT may be)
-        // so player_embed::export_for_template gets the type it declares.
-        $output = $PAGE->get_renderer('core');
-        $context = $this->resolve_context($options);
-        $rendered = false;
+            // Iterate matches in reverse so byte offsets stay valid as we splice.
+            foreach (array_reverse($matches) as $match) {
+                [$full, $offset] = $match[0];
+                // Capture 1 is the bare playback id; `pb_` is only the shortcode
+                // marker. The asset table stores the bare playback id.
+                $playbackid = $match[1][0];
 
-        // Iterate matches in reverse so byte offsets stay valid as we splice.
-        foreach (array_reverse($matches) as $match) {
-            [$full, $offset] = $match[0];
-            // Capture 1 is the bare playback id; `pb_` is only the shortcode
-            // marker. The asset table stores the bare playback id.
-            $playbackid = $match[1][0];
+                $replacement = $this->resolve_replacement($output, $context, $full, $playbackid, $rendered);
+                $text = substr_replace($text, $replacement, $offset, strlen($full));
+            }
 
-            $replacement = $this->resolve_replacement($output, $context, $full, $playbackid, $rendered);
-            $text = substr_replace($text, $replacement, $offset, strlen($full));
-        }
-
-        // Attach the boot module once per filter() invocation, only if at least
-        // one player actually rendered. The DRM token mint stays client-deferred
-        // (invariant 8) — this attaches no FastPix call, just the ESM lib URLs.
-        if ($rendered) {
-            $PAGE->requires->js_call_amd('filter_fastpix/player_boot', 'init', [[
-                'playerliburl' => \mod_fastpix\service\playback_service::PLAYER_LIB_URL,
-                'hlsliburl'    => \mod_fastpix\service\playback_service::HLS_LIB_URL,
-            ]]);
+            // Attach the boot module once per filter() invocation, only if at
+            // least one player actually rendered. The DRM token mint stays
+            // client-deferred (invariant 8) — this attaches no FastPix call,
+            // just the ESM lib URLs.
+            if ($rendered) {
+                $PAGE->requires->js_call_amd('filter_fastpix/player_boot', 'init', [[
+                    'playerliburl' => \mod_fastpix\service\playback_service::PLAYER_LIB_URL,
+                    'hlsliburl'    => \mod_fastpix\service\playback_service::HLS_LIB_URL,
+                ]]);
+            }
         }
 
         return $text;
@@ -136,18 +135,39 @@ class text_filter extends \core_filters\text_filter {
             $rendered = true;
             return $this->render_public_by_id($output, $playbackid);
         }
+        return $this->resolve_for_known_asset($output, $asset, $rendered);
+    }
+
+    /**
+     * Resolve the replacement HTML for a shortcode whose asset IS in this
+     * Moodle's library (post-capability-gate). DRM and private (non-DRM) assets
+     * each get their own placeholder reason; only a public, resolvable asset
+     * renders a player (degrading to the generic placeholder otherwise).
+     *
+     * @param \renderer_base $output The renderer to template with.
+     * @param \stdClass $asset The asset row from get_by_playback_id.
+     * @param bool $rendered Set to true (by reference) when a player is rendered.
+     * @return string The replacement HTML for this shortcode.
+     */
+    protected function resolve_for_known_asset(
+        \renderer_base $output,
+        \stdClass $asset,
+        bool &$rendered
+    ): string {
+        // DRM-protected and private (non-DRM) assets are not embedded — each
+        // shows its own placeholder reason. DRM: there is no activity-agnostic
+        // endpoint to mint a fresh DRM token on play. Private: the render-time
+        // playback token would go stale in long-lived content (a forum post
+        // opened later) and casual embeds have no client-side token refresh, so
+        // embeds are public videos only. DRM is checked first.
+        $blockkey = null;
         if (!empty($asset->drm_required)) {
-            // DRM-protected assets cannot be embedded: there is no activity-
-            // agnostic endpoint to mint a fresh DRM token on play. Show a DRM-
-            // specific reason rather than the generic placeholder.
-            return $this->render_unavailable($output, 'drmunavailable');
+            $blockkey = 'drmunavailable';
+        } else if (($asset->access_policy ?? '') !== 'public') {
+            $blockkey = 'privateunavailable';
         }
-        if (($asset->access_policy ?? '') !== 'public') {
-            // Private (non-DRM) assets are not embedded. Their playback token is
-            // minted at render and would go stale in long-lived content (a forum
-            // post opened later), and casual embeds have no client-side token
-            // refresh. Embeds are public videos only.
-            return $this->render_unavailable($output, 'privateunavailable');
+        if ($blockkey !== null) {
+            return $this->render_unavailable($output, $blockkey);
         }
 
         $player = $this->render_player($output, $asset);
@@ -269,15 +289,15 @@ class text_filter extends \core_filters\text_filter {
      */
     protected function resolve_context(array $options): \context {
         if (isset($options['context']) && $options['context'] instanceof \context) {
-            return $options['context'];
+            $context = $options['context'];
+        } else if (!empty($options['contextid'])) {
+            $context = \context::instance_by_id($options['contextid']);
+        } else if (!empty($this->context) && $this->context instanceof \context) {
+            $context = $this->context;
+        } else {
+            $context = \context_system::instance();
         }
-        if (!empty($options['contextid'])) {
-            return \context::instance_by_id($options['contextid']);
-        }
-        if (!empty($this->context) && $this->context instanceof \context) {
-            return $this->context;
-        }
-        return \context_system::instance();
+        return $context;
     }
 
     /**
