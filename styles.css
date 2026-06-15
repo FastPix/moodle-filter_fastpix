@@ -16,7 +16,11 @@
     background: #000;
 }
 
-.filter_fastpix-player-wrapper fastpix-player {
+/* The mounted player element (the <fastpix-player> custom element added by
+ * player_boot.js). Targeted via the child combinator rather than the custom
+ * element's type name, which Moodle's stylelint rejects
+ * (selector-type-no-unknown). The wrapper only ever contains this one child. */
+.filter_fastpix-player-wrapper > * {
     display: block;
     width: 100%;
     aspect-ratio: 16 / 9;
