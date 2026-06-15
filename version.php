@@ -25,14 +25,14 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component    = 'filter_fastpix';
-$plugin->version      = 2026061100;
+$plugin->version      = 2026061503;
 $plugin->requires     = 2024100100; // Moodle 4.5 LTS.
 $plugin->maturity     = MATURITY_STABLE;
-$plugin->release      = '1.0.1';
+$plugin->release      = '1.0.3';
 $plugin->dependencies = [
     // Reuses mod/fastpix:view (capability) and mirrors its <fastpix-player>
     // markup (CC9). All asset/playback/watermark/token operations route through
     // local_fastpix services — this filter makes no FastPix HTTP calls itself.
-    'mod_fastpix'   => 2026052901,
-    'local_fastpix' => 2026052202,
+    'mod_fastpix'   => 2026061500,
+    'local_fastpix' => 2026061500,
 ];

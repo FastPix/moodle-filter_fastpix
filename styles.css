@@ -1,0 +1,23 @@
+/* Player embed styling for filter_fastpix.
+ *
+ * Moved out of an inline style="" attribute on the player wrapper (and out of
+ * an element.style assignment in amd/src/player_boot.js) — inline CSS is
+ * forbidden by the Moodle coding style. All rules are scoped to the filter's
+ * own wrapper class (.filter_fastpix-player-wrapper) so they cannot leak into
+ * other content. Moodle auto-loads this file on every page.
+ *
+ * The 16:9 sized, black box keeps the embed from collapsing before the
+ * <fastpix-player> web component is mounted by player_boot.js. */
+.filter_fastpix-player-wrapper {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+}
+
+.filter_fastpix-player-wrapper fastpix-player {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+}

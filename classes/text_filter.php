@@ -63,6 +63,7 @@ class text_filter extends \core_filters\text_filter {
             $output = $PAGE->get_renderer('core');
             $context = $this->resolve_context($options);
             $rendered = false;
+            $denied = 0;
 
             // Iterate matches in reverse so byte offsets stay valid as we splice.
             foreach (array_reverse($matches) as $match) {
@@ -71,8 +72,17 @@ class text_filter extends \core_filters\text_filter {
                 // marker. The asset table stores the bare playback id.
                 $playbackid = $match[1][0];
 
-                $replacement = $this->resolve_replacement($output, $context, $full, $playbackid, $rendered);
+                $replacement = $this->resolve_replacement($output, $context, $full, $playbackid, $rendered, $denied);
                 $text = substr_replace($text, $replacement, $offset, strlen($full));
+            }
+
+            // One structured denial log per filter() invocation, not one per
+            // shortcode. A forum post with many embeds, viewed by many
+            // unauthorised users, would otherwise flood the server log. Every
+            // denied match in a single filter() call shares the same context and
+            // user, so a single line carrying the count is fully equivalent.
+            if ($denied > 0) {
+                $this->log_capability_denied($context, $denied);
             }
 
             // Attach the boot module once per filter() invocation, only if at
@@ -81,8 +91,14 @@ class text_filter extends \core_filters\text_filter {
             // just the ESM lib URLs.
             if ($rendered) {
                 $PAGE->requires->js_call_amd('filter_fastpix/player_boot', 'init', [[
-                    'playerliburl' => \mod_fastpix\service\playback_service::PLAYER_LIB_URL,
-                    'hlsliburl'    => \mod_fastpix\service\playback_service::HLS_LIB_URL,
+                    // Player ESM is served by local_fastpix (ADR-017); consume the
+                    // documented surface (CC1/CC7), not mod_fastpix's removed
+                    // PLAYER_LIB_URL constant. Already absolute (wwwroot-prefixed).
+                    'playerliburl' => \local_fastpix\service\playback_service::player_lib_url(),
+                    // HLS_LIB_URL is a root-relative path to mod_fastpix's vendored
+                    // lib; resolve to an absolute URL for the native import(), the
+                    // same way mod_fastpix's view_state_player does.
+                    'hlsliburl'    => (new \moodle_url(\mod_fastpix\service\playback_service::HLS_LIB_URL))->out(false),
                 ]]);
             }
         }
@@ -104,6 +120,7 @@ class text_filter extends \core_filters\text_filter {
      * @param string $full The full matched shortcode text (for the literal fallback).
      * @param string $playbackid The captured bare playback id.
      * @param bool $rendered Set to true (by reference) when a player is rendered.
+     * @param int $denied Incremented (by reference) when the capability gate denies.
      * @return string The replacement HTML for this shortcode.
      */
     protected function resolve_replacement(
@@ -111,13 +128,17 @@ class text_filter extends \core_filters\text_filter {
         \context $context,
         string $full,
         string $playbackid,
-        bool &$rendered
+        bool &$rendered,
+        int &$denied
     ): string {
         // T6 capability gate. has_capability (not require_capability): throwing
         // inside a text filter blanks the entire surrounding page. Denial emits
-        // the escaped literal — never a player and never an empty string.
+        // the escaped literal — never a player and never an empty string. The
+        // denial is counted here and logged once per filter() call (see filter())
+        // rather than per match, to keep heavily-embedded posts from flooding
+        // the log.
         if (!has_capability('mod/fastpix:view', $context)) {
-            $this->log_capability_denied($context, $playbackid);
+            $denied++;
             return s($full);
         }
 
@@ -301,38 +322,17 @@ class text_filter extends \core_filters\text_filter {
     }
 
     /**
-     * Emit a structured denial log. Never logs the raw user id — only a salted
-     * hash, matching the local_fastpix user_hash convention.
+     * Record a denial via a standard Moodle event, once per filter() render
+     * (carrying the denied count), not once per shortcode — so a heavily-embedded
+     * post cannot flood the log. The core log store records the acting user via
+     * the event itself; no extra personal data is added.
      *
      * @param \context $context The context the check was denied in.
-     * @param string $playbackid The shortcode's playback id (pb_ prefixed).
+     * @param int $deniedcount How many shortcodes were denied in this render.
      * @return void
      */
-    protected function log_capability_denied(\context $context, string $playbackid): void {
-        global $USER;
-        // phpcs:ignore moodle.PHP.ForbiddenFunctions.FoundWithAlternative
-        error_log(json_encode([
-            'event'       => 'filter.capability.denied',
-            'user_hash'   => $this->user_hash((int)$USER->id),
-            'context_id'  => $context->id,
-            'playback_id' => $playbackid,
-        ]));
-    }
-
-    /**
-     * Salted, non-reversible hash of a user id, mirroring local_fastpix's
-     * user_hash so denial logs never carry a raw user id.
-     *
-     * @param int $userid The user id to hash.
-     * @return string The HMAC hash, or a sentinel when the salt is unconfigured.
-     */
-    protected function user_hash(int $userid): string {
-        $salt = (string)get_config('local_fastpix', 'user_hash_salt');
-        if ($salt === '') {
-            // Logging must never break a page render; degrade rather than throw.
-            return 'nosalt';
-        }
-        return hash_hmac('sha256', (string)$userid, $salt);
+    protected function log_capability_denied(\context $context, int $deniedcount): void {
+        \filter_fastpix\event\capability_denied::create_from_context($context, $deniedcount)->trigger();
     }
 
     /**

@@ -4,6 +4,55 @@ All notable changes to `filter_fastpix` are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this
 project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] — 2026-06-15
+
+### Changed
+- **Video player is now served from your Moodle site, not a public CDN.** The
+  FastPix player and the HLS library are loaded from the locally-vendored copies
+  shipped with `local_fastpix` and `mod_fastpix` (ADR-017), so embeds no longer
+  fetch any JavaScript from jsdelivr. This meets the Moodle Plugins Directory
+  requirement that all JavaScript be served from the Moodle site.
+
+### Fixed
+- **Embeds no longer break against the latest companion plugins.** `mod_fastpix`
+  removed its `PLAYER_LIB_URL` constant when the player moved to `local_fastpix`;
+  the filter now consumes the new `local_fastpix` player surface instead, and
+  resolves the HLS library to an absolute URL so embeds work on Moodle sites
+  installed in a subdirectory.
+
+### Fixed (Plugins Directory compliance)
+- **No more inline CSS.** The player wrapper's `style="…"` attribute and the
+  element styling set in JavaScript were moved into a new `styles.css` scoped to
+  `.filter_fastpix-player-wrapper`. Inline CSS is forbidden by the Moodle coding
+  style.
+- **GPL header added to the JavaScript module.** `amd/src/player_boot.js` now
+  carries the standard Moodle GPL boilerplate header like every other source file.
+
+### Requirements
+- Now requires `local_fastpix` and `mod_fastpix` 2026061500 or newer (the
+  versions that serve the player/HLS libraries locally).
+
+## [1.0.2] — 2026-06-14
+
+### Changed
+- **Permission-denied views are recorded as a standard Moodle event, not a raw
+  server-log line.** When a viewer without permission opens content containing
+  FastPix embeds, the filter now triggers a `capability_denied` event once per
+  page render (carrying the number of embeds denied) instead of writing to the
+  server error log per embed. This is visible in Moodle's standard log/report
+  tools and removes the previously flagged raw `error_log()` call. The
+  user-facing behaviour is unchanged — each shortcode still shows as escaped
+  plain text and no video plays.
+
+### Added
+- **Plugin name shown on the admin plugin-overview page.** Added the
+  `pluginname` language string so the plugin lists with a friendly name
+  alongside its filter name.
+- **`.gitattributes` for tidier release zips.** Repository/CI tooling
+  (`.github`, `.gitignore`, `.gitattributes`) is now excluded from the published
+  plugin archive; plugin code, language strings, templates, AMD build output and
+  tests are still shipped.
+
 ## [1.0.0] — 2026-06-04
 
 First release. A text filter that turns a short code into a playable FastPix
