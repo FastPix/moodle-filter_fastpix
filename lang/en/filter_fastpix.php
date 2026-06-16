@@ -26,8 +26,9 @@ defined('MOODLE_INTERNAL') || die();
 
 // Strings are ordered alphabetically by key (moodle.Files.LangFilesOrdering).
 $string['drmunavailable'] = 'This video is DRM-protected and cannot be played in an embed. Open it in its FastPix activity to watch.';
-$string['error:capability_denied'] = 'You do not have permission to view this video.';
+$string['eventcapabilitydenied'] = 'FastPix embed capability denied';
 $string['filtername'] = 'FastPix video embeds';
+$string['pluginname'] = 'FastPix video embeds';
 $string['privacy:metadata'] = 'The FastPix video embeds filter does not store any personal data. It renders shortcodes into players and defers all asset, playback and token operations to the local_fastpix plugin.';
 $string['privateunavailable'] = 'This video is private and can only be watched in its FastPix activity, not as an embed.';
 $string['unavailable'] = 'This video is unavailable.';

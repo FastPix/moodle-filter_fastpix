@@ -1,0 +1,7 @@
+# Development-only files that should not ship in the published plugin zip.
+# `git archive` (the basis of the Moodle plugin release zip) honours
+# export-ignore. Plugin code, language strings, templates, AMD build output and
+# the PHPUnit/Behat tests are all kept — only CI/repo tooling is stripped.
+/.github        export-ignore
+/.gitignore     export-ignore
+/.gitattributes export-ignore

@@ -152,6 +152,68 @@ final class filter_test extends \advanced_testcase {
     }
 
     /**
+     * Denial logging is collapsed to one structured line per filter() call: a
+     * post with many denied embeds must not write one log line per shortcode.
+     * Every denied match in a render shares the same context and user, so a
+     * single line carrying the count is equivalent and bounds log volume.
+     */
+    public function test_capability_denied_logs_once_per_render(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        // Enrol but do NOT grant mod/fastpix:view: every match is denied.
+        $this->getDataGenerator()->enrol_user($user->id, $course->id, 'guest');
+        $this->setUser($user);
+
+        $context = \context_course::instance($course->id);
+        $filter = new testable_filter_fastpix($context, []);
+        // Three shortcodes, all denied, in one filter() invocation.
+        $text = '{fastpix:pb_a1} mid {fastpix:pb_b2} end {fastpix:pb_c3}';
+        $output = $filter->filter($text, ['context' => $context]);
+
+        $this->assertSame(1, $filter->denialogcalls, 'Denials must log once per render, not per shortcode.');
+        $this->assertSame(3, $filter->lastdeniedcount, 'The single log line must carry the denied count.');
+        // The user-facing behaviour is unchanged: each shortcode still becomes
+        // its own escaped literal, and no player renders.
+        $this->assertStringContainsString(s('{fastpix:pb_a1}'), $output);
+        $this->assertStringContainsString(s('{fastpix:pb_c3}'), $output);
+        $this->assertStringNotContainsString('<fastpix-player', $output);
+    }
+
+    /**
+     * Denial is recorded via a standard Moodle event
+     * (\filter_fastpix\event\capability_denied), fired once per render and
+     * carrying the rendering context and the denied-shortcode count. This is the
+     * reviewer-safe replacement for the old raw error_log() line. Uses the real
+     * filter (not the counting fixture, which suppresses the trigger).
+     */
+    public function test_capability_denied_triggers_event(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        // Enrol but do NOT grant mod/fastpix:view: every match is denied.
+        $this->getDataGenerator()->enrol_user($user->id, $course->id, 'guest');
+        $this->setUser($user);
+
+        $context = \context_course::instance($course->id);
+        $filter = new \filter_fastpix\text_filter($context, []);
+
+        $sink = $this->redirectEvents();
+        // Two denied shortcodes in one render → exactly one event, count 2.
+        $filter->filter('{fastpix:pb_a1} and {fastpix:pb_b2}', ['context' => $context]);
+        $events = $sink->get_events();
+        $sink->close();
+
+        $denials = array_values(array_filter($events, static function ($e) {
+            return $e instanceof \filter_fastpix\event\capability_denied;
+        }));
+        $this->assertCount(1, $denials, 'Exactly one denial event per render.');
+        $this->assertSame($context->id, (int)$denials[0]->contextid);
+        $this->assertSame((int)$user->id, (int)$denials[0]->userid);
+        $this->assertSame(2, $denials[0]->other['deniedcount']);
+    }
+
+    /**
      * T6, sharper: the escaped-literal fallback must HTML-escape special
      * characters in the (attacker-controllable) attribute tail. Distinguishes a
      * real s() escape from passing the raw shortcode through verbatim.
@@ -252,6 +314,29 @@ final class filter_test extends \advanced_testcase {
         $this->assertStringContainsString('data-region="fastpix-player-wrapper"', $output);
         $this->assertStringContainsString('data-playback-id="' . $playbackid . '"', $output);
         $this->assertStringNotContainsString('filter_fastpix-unavailable', $output);
+    }
+
+    /**
+     * No inline CSS: the rendered player carries the scoping class (sizing lives
+     * in styles.css) and emits no inline style="" attribute. Moodle forbids
+     * inline CSS, so this locks the move of the wrapper style into styles.css.
+     */
+    public function test_player_has_no_inline_style(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($user->id, $course->id, 'student');
+        $this->setUser($user);
+
+        $playbackid = $this->create_ready_public_asset();
+        $context = \context_course::instance($course->id);
+        $filter = new \filter_fastpix\text_filter($context, []);
+        $output = $filter->filter("{fastpix:pb_{$playbackid}}", ['context' => $context]);
+
+        // The scoping hook styles.css targets must be present...
+        $this->assertStringContainsString('filter_fastpix-player-wrapper', $output);
+        // ...and there must be no inline style attribute on the emitted markup.
+        $this->assertStringNotContainsString('style=', $output);
     }
 
     /**

@@ -40,10 +40,24 @@ class testable_filter_fastpix extends \filter_fastpix\text_filter {
     /** @var array The match sets returned by the most recent regex pass. */
     public $lastmatches = [];
 
+    /** @var int Number of times log_capability_denied() was invoked. */
+    public $denialogcalls = 0;
+
+    /** @var int The denied count passed to the most recent denial-log call. */
+    public $lastdeniedcount = 0;
+
     #[\Override]
     protected function collect_matches(string $text): array {
         $this->collectcalls++;
         $this->lastmatches = parent::collect_matches($text);
         return $this->lastmatches;
+    }
+
+    #[\Override]
+    protected function log_capability_denied(\context $context, int $deniedcount): void {
+        // Capture instead of writing to the server log, so a test can prove the
+        // denial is logged once per render (carrying the count), not per match.
+        $this->denialogcalls++;
+        $this->lastdeniedcount = $deniedcount;
     }
 }
