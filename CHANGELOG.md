@@ -34,16 +34,6 @@ project follows [Semantic Versioning](https://semver.org/).
 
 ## [1.0.2] — 2026-06-14
 
-### Changed
-- **Permission-denied views are recorded as a standard Moodle event, not a raw
-  server-log line.** When a viewer without permission opens content containing
-  FastPix embeds, the filter now triggers a `capability_denied` event once per
-  page render (carrying the number of embeds denied) instead of writing to the
-  server error log per embed. This is visible in Moodle's standard log/report
-  tools and removes the previously flagged raw `error_log()` call. The
-  user-facing behaviour is unchanged — each shortcode still shows as escaped
-  plain text and no video plays.
-
 ### Added
 - **Plugin name shown on the admin plugin-overview page.** Added the
   `pluginname` language string so the plugin lists with a friendly name
@@ -53,6 +43,18 @@ project follows [Semantic Versioning](https://semver.org/).
   plugin archive; plugin code, language strings, templates, AMD build output and
   tests are still shipped.
 
+## [1.0.1] — 2026-06-13
+
+### Changed
+- **Permission-denied views are recorded as a standard Moodle event, not a raw
+  server-log line.** When a viewer without permission opens content containing
+  FastPix embeds, the filter now triggers a `capability_denied` event once per
+  page render (carrying the number of embeds denied) instead of writing to the
+  server error log per embed. This is visible in Moodle's standard log/report
+  tools and removes the previously flagged raw `error_log()` call. The
+  user-facing behaviour is unchanged — each shortcode still shows as escaped
+  plain text and no video plays.
+  
 ## [1.0.0] — 2026-06-04
 
 First release. A text filter that turns a short code into a playable FastPix
