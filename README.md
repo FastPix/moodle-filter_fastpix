@@ -80,7 +80,7 @@ own, and has no Composer dependencies.
 
 Choose one of the following methods.
 
-### Install from the Moodle Plugins directory
+### Install from the Moodle Marketplace
 
 1. Sign in to your Moodle site as an administrator.
 2. Go to **Site administration > Plugins > Install plugins**.
@@ -88,7 +88,7 @@ Choose one of the following methods.
 
 ### Install from a ZIP file
 
-1. Download the latest release from the Moodle plugins directory page,
+1. Download the latest release from the Moodle Marketplace page,
    or from the GitHub Releases page.
 2. Sign in to your Moodle site as an administrator.
 3. Go to **Site administration > Plugins > Install plugins** and
